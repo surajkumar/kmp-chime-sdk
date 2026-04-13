@@ -61,8 +61,8 @@ actual fun joinMeeting(
     onVideoNeedsRestart: () -> Unit,
     onLocalVideoTileRemoved: (() -> Unit)?,
     preferredAudioInputDeviceType: String?,
-    onRemoteTileAdded: ((Int?) -> Unit)?,
-    onRemoteTileRemoved: (() -> Unit)?,
+    onRemoteTileAdded: ((Int) -> Unit)?,
+    onRemoteTileRemoved: ((Int) -> Unit)?,
     onSystemMessage: (TextMessage) -> Unit,
     isJoiningOnMute: Boolean,
     onLocalAttendeeIdAvailable: (String) -> Unit
@@ -129,8 +129,8 @@ actual fun joinMeeting(
     // Video tile callbacks
     VideoTileManager.onLocalTileAdded = { onLocalVideoTileAdded?.invoke(VideoTileManager.localTileId) }
     VideoTileManager.onLocalTileRemoved = { onLocalVideoTileRemoved?.invoke() }
-    VideoTileManager.onRemoteTileAdded = { onRemoteTileAdded?.invoke(VideoTileManager.remoteTileId) }
-    VideoTileManager.onRemoteTileRemoved = { onRemoteTileRemoved?.invoke() }
+    VideoTileManager.onRemoteTileAdded = { tileId -> onRemoteTileAdded?.invoke(tileId) }
+    VideoTileManager.onRemoteTileRemoved = { tileId -> onRemoteTileRemoved?.invoke(tileId) }
 
     meetingSession!!.audioVideo.addVideoTileObserver(VideoTileManager)
     meetingSession!!.audioVideo.addDeviceChangeObserver(deviceObserver!!)
@@ -262,9 +262,9 @@ actual fun LocalVideoView(modifier: Modifier, cameraFacing: CameraFacing, isOnTo
 }
 
 @Composable
-actual fun RemoteVideoView(modifier: Modifier, isOnTop: Boolean) {
+actual fun RemoteVideoView(modifier: Modifier, tileId: Int, isOnTop: Boolean) {
     VideoTileView(
-        tileId = VideoTileManager.remoteTileId,
+        tileId = tileId,
         modifier = modifier,
         isOnTop = isOnTop
     )

@@ -20,8 +20,8 @@ object ChimeSdkBridge {
 
     /** Swift provides a factory that returns the pre-created UIView for local video */
     var localVideoViewFactory: (() -> UIView)? = null
-    /** Swift provides a factory that returns the pre-created UIView for remote video */
-    var remoteVideoViewFactory: (() -> UIView)? = null
+    /** Swift provides a factory that returns the render view for a given remote tile ID */
+    var remoteVideoViewFactory: ((Int) -> UIView)? = null
 
     /**
      * Kotlin stores the active delegate here after joinMeeting() is called.
@@ -41,7 +41,7 @@ interface ChimeIOSDelegate {
     fun onLocalVideoTileAdded(tileId: Int)
     fun onLocalVideoTileRemoved()
     fun onRemoteTileAdded(tileId: Int)
-    fun onRemoteTileRemoved()
+    fun onRemoteTileRemoved(tileId: Int)
     fun onLocalAttendeeIdAvailable(attendeeId: String)
     fun onVideoNeedsRestart()
     fun onCameraSendAvailable(available: Boolean)
@@ -49,7 +49,7 @@ interface ChimeIOSDelegate {
     fun onSessionError(message: String, isRecoverable: Boolean)
     fun onAttendeesJoined(attendeeIds: List<String>)
     fun onAttendeesDropped(attendeeIds: List<String>)
-    fun onAttendeesLeft()
+    fun onAttendeesLeft(attendeeIds: List<String>)
     fun onAttendeesMuted(attendeeIds: List<String>)
     fun onAttendeesUnmuted(attendeeIds: List<String>)
     fun onSignalStrengthChanged(attendeeId: String, externalAttendeeId: String, signal: Int)
@@ -70,8 +70,8 @@ private class IOSDelegateToCallbacks(
     private val onSessionError: (String, Boolean) -> Unit,
     private val onVideoNeedsRestart: () -> Unit,
     private val onLocalVideoTileRemoved: (() -> Unit)?,
-    private val onRemoteTileAdded: ((Int?) -> Unit)?,
-    private val onRemoteTileRemoved: (() -> Unit)?,
+    private val onRemoteTileAdded: ((Int) -> Unit)?,
+    private val onRemoteTileRemoved: ((Int) -> Unit)?,
     private val onSystemMessage: (TextMessage) -> Unit,
     private val onLocalAttendeeIdAvailable: (String) -> Unit
 ) : ChimeIOSDelegate {
@@ -116,8 +116,8 @@ private class IOSDelegateToCallbacks(
         onRemoteTileAdded?.invoke(tileId)
     }
 
-    override fun onRemoteTileRemoved() {
-        onRemoteTileRemoved?.invoke()
+    override fun onRemoteTileRemoved(tileId: Int) {
+        onRemoteTileRemoved?.invoke(tileId)
     }
 
     override fun onLocalAttendeeIdAvailable(attendeeId: String) {
@@ -148,8 +148,8 @@ private class IOSDelegateToCallbacks(
         realTimeListener.onAttendeesDropped(attendeeIds)
     }
 
-    override fun onAttendeesLeft() {
-        realTimeListener.onAttendeesLeft()
+    override fun onAttendeesLeft(attendeeIds: List<String>) {
+        realTimeListener.onAttendeesLeft(attendeeIds)
     }
 
     override fun onAttendeesMuted(attendeeIds: List<String>) {
@@ -195,8 +195,8 @@ actual fun joinMeeting(
     onVideoNeedsRestart: () -> Unit,
     onLocalVideoTileRemoved: (() -> Unit)?,
     preferredAudioInputDeviceType: String?,
-    onRemoteTileAdded: ((Int?) -> Unit)?,
-    onRemoteTileRemoved: (() -> Unit)?,
+    onRemoteTileAdded: ((Int) -> Unit)?,
+    onRemoteTileRemoved: ((Int) -> Unit)?,
     onSystemMessage: (TextMessage) -> Unit,
     isJoiningOnMute: Boolean,
     onLocalAttendeeIdAvailable: (String) -> Unit
@@ -255,10 +255,10 @@ actual fun LocalVideoView(modifier: Modifier, cameraFacing: CameraFacing, isOnTo
 }
 
 @Composable
-actual fun RemoteVideoView(modifier: Modifier, isOnTop: Boolean) {
+actual fun RemoteVideoView(modifier: Modifier, tileId: Int, isOnTop: Boolean) {
     val factory = ChimeSdkBridge.remoteVideoViewFactory
     if (factory != null) {
-        UIKitView(factory = factory, modifier = modifier)
+        UIKitView(factory = { factory(tileId) }, modifier = modifier)
     }
 }
 

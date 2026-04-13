@@ -21,7 +21,7 @@ class RealTimeObserver : RealtimeObserver {
     }
 
     override fun onAttendeesLeft(attendeeInfo: Array<AttendeeInfo>) {
-        listener?.onAttendeesLeft()
+        listener?.onAttendeesLeft(attendeeInfo.map { it.attendeeId })
     }
 
     override fun onAttendeesMuted(attendeeInfo: Array<AttendeeInfo>) {

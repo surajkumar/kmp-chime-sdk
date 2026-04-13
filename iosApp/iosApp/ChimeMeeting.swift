@@ -14,13 +14,16 @@ class ChimeMeeting: NSObject {
     private var muted = false
     private var isFrontCamera = true
 
-    // Pre-created video render views so Compose can reference them via UIKitView factories
+    // Pre-created local render view; remote views are created per-tile in VideoTileManager
     let localRenderView = DefaultVideoRenderView()
-    let remoteRenderView = DefaultVideoRenderView()
 
     private override init() {
         super.init()
         localRenderView.mirror = true
+    }
+
+    func remoteVideoView(for tileId: Int32) -> UIView {
+        return videoTileManager?.remoteView(for: Int(tileId)) ?? UIView()
     }
 
     // MARK: – Join
@@ -70,7 +73,6 @@ class ChimeMeeting: NSObject {
 
         let tileManager = VideoTileManager(
             localView: localRenderView,
-            remoteView: remoteRenderView,
             audioVideo: meetingSession!.audioVideo
         )
         videoTileManager = tileManager
@@ -303,7 +305,9 @@ extension ChimeMeeting: RealtimeObserver {
     }
 
     func attendeesDidLeave(attendeeInfo: [AttendeeInfo]) {
-        ChimeSdkBridge.shared.eventDelegate?.onAttendeesLeft()
+        ChimeSdkBridge.shared.eventDelegate?.onAttendeesLeft(
+            attendeeIds: attendeeInfo.map { $0.attendeeId }
+        )
     }
 
     func attendeesDidDrop(attendeeInfo: [AttendeeInfo]) {

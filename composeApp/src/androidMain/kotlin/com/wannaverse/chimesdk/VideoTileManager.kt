@@ -11,12 +11,12 @@ import kotlinx.coroutines.launch
 
 object VideoTileManager : VideoTileObserver {
     var localTileId by mutableStateOf<Int?>(null)
-    var remoteTileId by mutableStateOf<Int?>(null)
+    var remoteTileIds by mutableStateOf<List<Int>>(emptyList())
 
     var onLocalTileAdded: (() -> Unit)? = null
     var onLocalTileRemoved: (() -> Unit)? = null
-    var onRemoteTileAdded: (() -> Unit)? = null
-    var onRemoteTileRemoved: (() -> Unit)? = null
+    var onRemoteTileAdded: ((Int) -> Unit)? = null
+    var onRemoteTileRemoved: ((Int) -> Unit)? = null
 
     private val boundViews = mutableMapOf<Int, Any?>()
 
@@ -26,22 +26,24 @@ object VideoTileManager : VideoTileObserver {
                 localTileId = tileState.tileId
                 onLocalTileAdded?.invoke()
             } else {
-                remoteTileId = tileState.tileId
-                onRemoteTileAdded?.invoke()
+                if (tileState.tileId !in remoteTileIds) {
+                    remoteTileIds = remoteTileIds + tileState.tileId
+                }
+                onRemoteTileAdded?.invoke(tileState.tileId)
             }
         }
     }
 
     override fun onVideoTileRemoved(tileState: VideoTileState) {
         CoroutineScope(Dispatchers.Main).launch {
-            when (tileState.tileId) {
-                localTileId -> {
+            when {
+                tileState.tileId == localTileId -> {
                     localTileId = null
                     onLocalTileRemoved?.invoke()
                 }
-                remoteTileId -> {
-                    remoteTileId = null
-                    onRemoteTileRemoved?.invoke()
+                tileState.tileId in remoteTileIds -> {
+                    remoteTileIds = remoteTileIds - tileState.tileId
+                    onRemoteTileRemoved?.invoke(tileState.tileId)
                 }
             }
         }
@@ -51,17 +53,16 @@ object VideoTileManager : VideoTileObserver {
 
     override fun onVideoTileResumed(tileState: VideoTileState) {
         CoroutineScope(Dispatchers.Main).launch {
-            if (tileState.isLocalTile) localTileId = tileState.tileId
-            else remoteTileId = tileState.tileId
+            if (tileState.isLocalTile) {
+                localTileId = tileState.tileId
+            } else if (tileState.tileId !in remoteTileIds) {
+                remoteTileIds = remoteTileIds + tileState.tileId
+                onRemoteTileAdded?.invoke(tileState.tileId)
+            }
         }
     }
 
-    override fun onVideoTileSizeChanged(tileState: VideoTileState) {
-        CoroutineScope(Dispatchers.Main).launch {
-            if (tileState.isLocalTile) localTileId = tileState.tileId
-            else remoteTileId = tileState.tileId
-        }
-    }
+    override fun onVideoTileSizeChanged(tileState: VideoTileState) {}
 
     fun updateBoundView(tileId: Int, view: Any) {
         boundViews[tileId] = view
@@ -81,7 +82,7 @@ object VideoTileManager : VideoTileObserver {
         }
         boundViews.clear()
         localTileId = null
-        remoteTileId = null
+        remoteTileIds = emptyList()
         onLocalTileAdded = null
         onLocalTileRemoved = null
         onRemoteTileAdded = null

@@ -248,6 +248,45 @@ private fun LoadingScreen(status: ConnectionStatus, onCancel: () -> Unit) {
     }
 }
 
+// ─── Remote Video Grid ────────────────────────────────────────────────────────
+
+@Composable
+private fun RemoteVideoGrid(tileIds: List<Int>) {
+    when (tileIds.size) {
+        0 -> {} // placeholder shown by caller
+        1 -> RemoteVideoView(modifier = Modifier.fillMaxSize(), tileId = tileIds[0], isOnTop = false)
+        2 -> Column(modifier = Modifier.fillMaxSize()) {
+            RemoteVideoView(modifier = Modifier.fillMaxWidth().weight(1f), tileId = tileIds[0], isOnTop = false)
+            RemoteVideoView(modifier = Modifier.fillMaxWidth().weight(1f), tileId = tileIds[1], isOnTop = false)
+        }
+        else -> {
+            val rows = (tileIds.size + 1) / 2
+            Column(modifier = Modifier.fillMaxSize()) {
+                repeat(rows) { row ->
+                    Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        val leftIdx = row * 2
+                        val rightIdx = leftIdx + 1
+                        RemoteVideoView(
+                            modifier = Modifier.fillMaxHeight().weight(1f),
+                            tileId = tileIds[leftIdx],
+                            isOnTop = false
+                        )
+                        if (rightIdx < tileIds.size) {
+                            RemoteVideoView(
+                                modifier = Modifier.fillMaxHeight().weight(1f),
+                                tileId = tileIds[rightIdx],
+                                isOnTop = false
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ─── In-Meeting Screen ────────────────────────────────────────────────────────
 
 @Composable
@@ -261,11 +300,11 @@ private fun InMeetingScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
 
-        // ── Remote video fills the entire screen ──────────────────────────────
-        RemoteVideoView(modifier = Modifier.fillMaxSize(), isOnTop = false)
+        // ── Remote video grid ─────────────────────────────────────────────────
+        RemoteVideoGrid(tileIds = state.remoteTileIds)
 
         // ── No-video placeholder ──────────────────────────────────────────────
-        if (!state.hasRemoteVideo) {
+        if (state.remoteTileIds.isEmpty()) {
             Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
