@@ -13,7 +13,7 @@ enum ChimeSdkSetup {
             meeting.localRenderView
         }
         ChimeSdkBridge.shared.remoteVideoViewFactory = { tileId in
-            meeting.remoteVideoView(for: tileId)
+            meeting.remoteVideoView(for: Int32(truncating: tileId))
         }
 
         // ── Meeting lifecycle ──────────────────────────────────────────────────

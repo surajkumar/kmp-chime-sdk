@@ -22,8 +22,8 @@ class ChimeMeeting: NSObject {
         localRenderView.mirror = true
     }
 
-    func remoteVideoView(for tileId: Int32) -> UIView {
-        return videoTileManager?.remoteView(for: Int(tileId)) ?? UIView()
+    func remoteVideoView(for tileId: Int32) -> DefaultVideoRenderView {
+        return videoTileManager?.remoteView(for: Int(tileId)) ?? DefaultVideoRenderView()
     }
 
     // MARK: – Join
