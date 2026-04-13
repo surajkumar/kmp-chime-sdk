@@ -27,8 +27,8 @@ expect fun joinMeeting(
     onVideoNeedsRestart: () -> Unit = {},
     onLocalVideoTileRemoved: (() -> Unit)?,
     preferredAudioInputDeviceType: String? = null,
-    onRemoteTileAdded: ((Int?) -> Unit)? = null,
-    onRemoteTileRemoved: (() -> Unit)? = null,
+    onRemoteTileAdded: ((Int) -> Unit)? = null,
+    onRemoteTileRemoved: ((Int) -> Unit)? = null,
     onSystemMessage: (TextMessage) -> Unit,
     isJoiningOnMute: Boolean,
     onLocalAttendeeIdAvailable: (String) -> Unit
@@ -44,7 +44,7 @@ expect fun stopLocalVideo()
 expect fun LocalVideoView(modifier: Modifier, cameraFacing: CameraFacing, isOnTop: Boolean)
 
 @Composable
-expect fun RemoteVideoView(modifier: Modifier, isOnTop: Boolean)
+expect fun RemoteVideoView(modifier: Modifier, tileId: Int, isOnTop: Boolean)
 
 expect fun sendRealtimeMessage(topic: String, data: String, lifetimeMs: Long = 0)
 

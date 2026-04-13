@@ -2,24 +2,28 @@ import Foundation
 import AmazonChimeSDK
 import ComposeApp
 
-/// Manages video tile binding between Chime SDK tiles and pre-created render views.
+/// Manages video tile binding between Chime SDK tiles and render views.
+/// Creates one DefaultVideoRenderView per remote tile on demand.
 class VideoTileManager: NSObject, VideoTileObserver {
 
     private let localView: DefaultVideoRenderView
-    private let remoteView: DefaultVideoRenderView
     private weak var audioVideo: (any AudioVideoFacade)?
 
     private var localTileId: Int?
-    private var remoteTileId: Int?
+    private var remoteTiles: [Int: DefaultVideoRenderView] = [:]
 
     init(
         localView: DefaultVideoRenderView,
-        remoteView: DefaultVideoRenderView,
         audioVideo: any AudioVideoFacade
     ) {
         self.localView = localView
-        self.remoteView = remoteView
         self.audioVideo = audioVideo
+    }
+
+    // MARK: – Public accessor for Compose bridge
+
+    func remoteView(for tileId: Int) -> DefaultVideoRenderView? {
+        return remoteTiles[tileId]
     }
 
     // MARK: – VideoTileObserver
@@ -33,8 +37,9 @@ class VideoTileManager: NSObject, VideoTileObserver {
                 self.audioVideo?.bindVideoView(videoView: self.localView, tileId: tileState.tileId)
                 ChimeSdkBridge.shared.eventDelegate?.onLocalVideoTileAdded(tileId: Int32(tileState.tileId))
             } else {
-                self.remoteTileId = tileState.tileId
-                self.audioVideo?.bindVideoView(videoView: self.remoteView, tileId: tileState.tileId)
+                let renderView = self.remoteTiles[tileState.tileId] ?? DefaultVideoRenderView()
+                self.remoteTiles[tileState.tileId] = renderView
+                self.audioVideo?.bindVideoView(videoView: renderView, tileId: tileState.tileId)
                 ChimeSdkBridge.shared.eventDelegate?.onRemoteTileAdded(tileId: Int32(tileState.tileId))
             }
         }
@@ -48,9 +53,9 @@ class VideoTileManager: NSObject, VideoTileObserver {
             if tileState.tileId == self.localTileId {
                 self.localTileId = nil
                 ChimeSdkBridge.shared.eventDelegate?.onLocalVideoTileRemoved()
-            } else if tileState.tileId == self.remoteTileId {
-                self.remoteTileId = nil
-                ChimeSdkBridge.shared.eventDelegate?.onRemoteTileRemoved()
+            } else if self.remoteTiles[tileState.tileId] != nil {
+                self.remoteTiles.removeValue(forKey: tileState.tileId)
+                ChimeSdkBridge.shared.eventDelegate?.onRemoteTileRemoved(tileId: Int32(tileState.tileId))
             }
         }
     }
@@ -65,8 +70,9 @@ class VideoTileManager: NSObject, VideoTileObserver {
                 self.audioVideo?.bindVideoView(videoView: self.localView, tileId: tileState.tileId)
                 ChimeSdkBridge.shared.eventDelegate?.onLocalVideoTileAdded(tileId: Int32(tileState.tileId))
             } else {
-                self.remoteTileId = tileState.tileId
-                self.audioVideo?.bindVideoView(videoView: self.remoteView, tileId: tileState.tileId)
+                let renderView = self.remoteTiles[tileState.tileId] ?? DefaultVideoRenderView()
+                self.remoteTiles[tileState.tileId] = renderView
+                self.audioVideo?.bindVideoView(videoView: renderView, tileId: tileState.tileId)
                 ChimeSdkBridge.shared.eventDelegate?.onRemoteTileAdded(tileId: Int32(tileState.tileId))
             }
         }

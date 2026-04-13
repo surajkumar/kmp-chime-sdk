@@ -24,6 +24,7 @@ data class CallState(
     val localAttendeeId: String? = null,
     val hasRemoteVideo: Boolean = false,
     val remoteVideoSourceCount: Int = 0,
+    val remoteTileIds: List<Int> = emptyList(),
     val startMuted: Boolean = false,
     val cameraFacing: CameraFacing = CameraFacing.FRONT
 )
@@ -121,8 +122,12 @@ class AppViewModel : ViewModel(), RealTimeEventListener {
                         _callState.update { it.copy(isCameraOn = false) }
                     },
                     preferredAudioInputDeviceType = null,
-                    onRemoteTileAdded = { _ -> },
-                    onRemoteTileRemoved = { },
+                    onRemoteTileAdded = { tileId ->
+                        _callState.update { it.copy(remoteTileIds = it.remoteTileIds + tileId) }
+                    },
+                    onRemoteTileRemoved = { tileId ->
+                        _callState.update { it.copy(remoteTileIds = it.remoteTileIds - tileId) }
+                    },
                     onSystemMessage = { msg ->
                         _callState.update { it.copy(systemMessages = it.systemMessages + msg) }
                     },
@@ -213,9 +218,7 @@ class AppViewModel : ViewModel(), RealTimeEventListener {
     // RealTimeEventListener
     override fun onAttendeesJoined(attendeeIds: List<String>) {}
     override fun onAttendeesDropped(attendeeIds: List<String>) {}
-    override fun onAttendeesLeft() {
-        viewModelScope.launch { leaveMeeting() }
-    }
+    override fun onAttendeesLeft(attendeeIds: List<String>) {}
     override fun onAttendeesMuted(attendeeIds: List<String>) {}
     override fun onAttendeesUnmuted(attendeeIds: List<String>) {}
     override fun onSignalStrengthChanged(attendeeId: String, externalAttendeeId: String, signal: Int) {}
