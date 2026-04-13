@@ -138,7 +138,8 @@ class AppViewModel(
                         _callState.update { it.copy(localAttendeeId = id) }
                     }
                 )
-                _callState.update { it.copy(isLoading = false, isJoined = true, isMuted = startMuted, isCameraOn = true) }
+                startLocalVideo()
+                _callState.update { it.copy(isLoading = false, isJoined = true, isMuted = startMuted) }
             } catch (e: Exception) {
                 _callState.update {
                     it.copy(
