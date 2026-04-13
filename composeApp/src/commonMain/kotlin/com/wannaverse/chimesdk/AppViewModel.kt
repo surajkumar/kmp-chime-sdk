@@ -131,7 +131,7 @@ class AppViewModel : ViewModel(), RealTimeEventListener {
                         _callState.update { it.copy(localAttendeeId = id) }
                     }
                 )
-                _callState.update { it.copy(isLoading = false, isJoined = true, isMuted = startMuted) }
+                _callState.update { it.copy(isLoading = false, isJoined = true, isMuted = startMuted, isCameraOn = true) }
             } catch (e: Exception) {
                 _callState.update {
                     it.copy(
@@ -166,16 +166,12 @@ class AppViewModel : ViewModel(), RealTimeEventListener {
     }
 
     fun toggleCamera() {
-        val currentlyOn = _callState.value.isCameraOn
-        if (currentlyOn) {
+        if (_callState.value.isCameraOn) {
             stopLocalVideo()
             _callState.update { it.copy(isCameraOn = false) }
         } else {
-            try {
-                startLocalVideo()
-            } catch (e: Exception) {
-                _callState.update { it.copy(errorMessage = "Camera error: ${e.message}") }
-            }
+            startLocalVideo()
+            _callState.update { it.copy(isCameraOn = true) }
         }
     }
 
