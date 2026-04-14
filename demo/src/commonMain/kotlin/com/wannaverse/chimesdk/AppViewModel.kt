@@ -130,7 +130,6 @@ class AppViewModel(
                     }
                 )
 
-                // Subscribe to topics — demo-defined; the library has no opinion on these
                 subscribeToTopic("chat") { msg ->
                     _callState.update { it.copy(chatMessages = it.chatMessages + msg) }
                 }
