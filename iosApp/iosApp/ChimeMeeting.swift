@@ -100,7 +100,7 @@ class ChimeMeeting: NSObject {
         }
 
         // Request microphone then camera permission, then start
-        AVAudioSession.sharedInstance().requestRecordPermission { [weak self] _ in
+        AVAudioApplication.requestRecordPermission { [weak self] _ in
             AVCaptureDevice.requestAccess(for: .video) { [weak self] _ in
                 DispatchQueue.main.async {
                     self?.startAudioAndVideo()
