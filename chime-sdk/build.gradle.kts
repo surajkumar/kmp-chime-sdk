@@ -8,10 +8,11 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.dokka)
     alias(libs.plugins.publishing)
+    kotlin("native.cocoapods")
 }
 
 group = "com.wannaverse"
-version = "0.0.0"
+version = "0.1.0"
 
 kotlin {
     androidTarget {
@@ -25,6 +26,17 @@ kotlin {
     iosX64()
     iosArm64()
     iosSimulatorArm64()
+
+    cocoapods {
+        summary = "KMP wrapper for Amazon ChimeSDK"
+        homepage = "https://github.com/WannaverseOfficial/kmp-chime-sdk"
+        version = project.version.toString()
+        ios.deploymentTarget = "16.0"
+
+        pod("AmazonChimeSDK") {
+            version = "~> 0.25.0"
+        }
+    }
 
     sourceSets {
         androidMain.dependencies {

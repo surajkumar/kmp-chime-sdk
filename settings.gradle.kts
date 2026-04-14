@@ -28,4 +28,3 @@ dependencyResolutionManagement {
 }
 
 include(":chime-sdk")
-include(":demo")
