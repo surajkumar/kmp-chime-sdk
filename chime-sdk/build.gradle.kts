@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.dokka)
+    alias(libs.plugins.publishing)
 }
 
 kotlin {
@@ -53,4 +55,42 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+}
+
+mavenPublishing {
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+
+    signAllPublications()
+
+    coordinates(group.toString(), "chimesdk", version.toString())
+
+    pom {
+        name = "kmp-chime-sdk"
+        description = "A library to integrate Amazon ChimeSDK"
+        inceptionYear = "2025"
+        url = "https://github.com/WannaverseOfficial/kmp-chime-sdk"
+        licenses {
+            license {
+                name = "MIT License"
+                url = "https://opensource.org/licenses/MIT"
+                distribution = "https://opensource.org/licenses/MIT"
+            }
+        }
+        developers {
+            developer {
+                id = "Wannaverse"
+                name = "wannaverse"
+                url = "https://github.com/WannaverseOfficial"
+            }
+        }
+        scm {
+            url = "https://github.com/WannaverseOfficial/kmp-chime-sdk"
+            connection = "scm:git:git://github.com/WannaverseOfficial/kmp-chime-sdk.git"
+            developerConnection = "scm:git:ssh://git@github.com/WannaverseOfficial/kmp-chime-sdk.git"
+        }
+    }
+}
+
+tasks.dokkaHtml {
+    outputDirectory.set(file("${rootDir}/docs"))
 }
