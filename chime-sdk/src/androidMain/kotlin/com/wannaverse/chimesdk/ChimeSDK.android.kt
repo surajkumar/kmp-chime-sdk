@@ -97,13 +97,11 @@ actual fun joinMeeting(
     eglCoreFactory = DefaultEglCoreFactory()
     meetingSession = DefaultMeetingSession(configuration, chimeLogger, appContext, eglCoreFactory!!)
 
-    // Observers
     realTimeObserver = RealTimeObserver().also { it.setListener(realTimeListener) }
     deviceObserver = DeviceObserver(meetingSession!!, realTimeListener)
 
     onLocalAttendeeIdAvailable(meetingSession!!.configuration.credentials.attendeeId)
 
-    // Audio device selection
     val audioDevices = meetingSession!!.audioVideo.listAudioDevices()
     if (audioDevices.isNotEmpty()) {
         val preferred = if (preferredAudioInputDeviceType != null) {
@@ -125,7 +123,6 @@ actual fun joinMeeting(
         deviceObserver!!.selectAudioDevice(preferred)
     }
 
-    // Video tile callbacks
     VideoTileManager.onLocalTileAdded = { onLocalVideoTileAdded?.invoke(VideoTileManager.localTileId) }
     VideoTileManager.onLocalTileRemoved = { onLocalVideoTileRemoved?.invoke() }
     VideoTileManager.onRemoteTileAdded = { tileId -> onRemoteTileAdded?.invoke(tileId) }

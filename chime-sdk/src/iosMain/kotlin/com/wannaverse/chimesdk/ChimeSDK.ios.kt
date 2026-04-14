@@ -5,14 +5,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import platform.UIKit.UIView
 
-// ─── Topic listener registry ──────────────────────────────────────────────────
-
 private val iosTopicListeners: MutableMap<String, (TextMessage) -> Unit> = mutableMapOf()
 
-// ─── Bridge object — Swift registers these before any meeting operations ─────
-
 object ChimeSdkBridge {
-    /** Swift must set this before calling joinMeeting */
     var joinMeetingNative: ((String, String, String, String, String, String, String, String, String, String) -> Unit)? = null
     var leaveMeetingNative: (() -> Unit)? = null
     var startLocalVideoNative: (() -> Unit)? = null
@@ -21,24 +16,12 @@ object ChimeSdkBridge {
     var setMuteNative: ((Boolean) -> Unit)? = null
     var switchCameraNative: (() -> Unit)? = null
     var switchAudioDeviceNative: ((String?) -> Unit)? = null
-
-    /** Swift subscribes/unsubscribes the native Chime SDK to a topic */
     var subscribeTopicNative: ((String) -> Unit)? = null
     var unsubscribeTopicNative: ((String) -> Unit)? = null
-
-    /** Swift provides a factory that returns the pre-created UIView for local video */
     var localVideoViewFactory: (() -> UIView)? = null
-    /** Swift provides a factory that returns the render view for a given remote tile ID */
     var remoteVideoViewFactory: ((Int) -> UIView)? = null
-
-    /**
-     * Kotlin stores the active delegate here after joinMeeting() is called.
-     * Swift calls methods on this delegate when Chime SDK events fire.
-     */
     var eventDelegate: ChimeIOSDelegate? = null
 }
-
-// ─── Delegate protocol — Swift implements this to forward Chime events ────────
 
 interface ChimeIOSDelegate {
     fun onConnectionStatusChanged(status: String)
@@ -62,8 +45,6 @@ interface ChimeIOSDelegate {
     fun onSignalStrengthChanged(attendeeId: String, externalAttendeeId: String, signal: Int)
     fun onVolumeChanged(attendeeId: String, externalAttendeeId: String, volume: Int)
 }
-
-// ─── Internal bridge: maps String status → ConnectionStatus enum ──────────────
 
 private class IOSDelegateToCallbacks(
     private val realTimeListener: RealTimeEventListener,
@@ -164,8 +145,6 @@ private class IOSDelegateToCallbacks(
         realTimeListener.onVolumeChanged(attendeeId, externalAttendeeId, volume)
     }
 }
-
-// ─── Actual implementations ───────────────────────────────────────────────────
 
 actual fun joinMeeting(
     externalMeetingId: String,
