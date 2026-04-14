@@ -21,11 +21,7 @@ class MainActivity : ComponentActivity() {
             arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
         )
         setContent {
-            App(initialMeetingInfo = MeetingInformation(
-                attendeeId = "f433a36f-58da-d909-7a04-bd0bf175823a",
-                externalUserId = "123456789",
-                joinToken = "ZjQzM2EzNmYtNThkYS1kOTA5LTdhMDQtYmQwYmYxNzU4MjNhOmUyYWEyYWE1LTViODgtNDlhYy05NmVmLTc3NjYzNzc2ZTdiMg"
-            ))
+            App()
         }
     }
 }
