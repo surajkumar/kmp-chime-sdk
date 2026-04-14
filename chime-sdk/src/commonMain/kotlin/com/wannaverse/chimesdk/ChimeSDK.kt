@@ -15,9 +15,7 @@ expect fun joinMeeting(
     externalUserId: String,
     joinToken: String,
     realTimeListener: RealTimeEventListener,
-    onChatMessageReceived: (TextMessage) -> Unit,
     onActiveSpeakersChanged: (Set<String>) -> Unit,
-    onEmojiReceived: (TextMessage) -> Unit,
     cameraFacing: CameraFacing = CameraFacing.FRONT,
     onLocalVideoTileAdded: ((Int?) -> Unit)? = null,
     onConnectionStatusChanged: (ConnectionStatus) -> Unit = {},
@@ -25,13 +23,12 @@ expect fun joinMeeting(
     onCameraSendAvailable: (available: Boolean) -> Unit = {},
     onSessionError: (message: String, isRecoverable: Boolean) -> Unit = { _, _ -> },
     onVideoNeedsRestart: () -> Unit = {},
-    onLocalVideoTileRemoved: (() -> Unit)?,
+    onLocalVideoTileRemoved: (() -> Unit)? = null,
     preferredAudioInputDeviceType: String? = null,
     onRemoteTileAdded: ((Int) -> Unit)? = null,
     onRemoteTileRemoved: ((Int) -> Unit)? = null,
-    onSystemMessage: (TextMessage) -> Unit,
-    isJoiningOnMute: Boolean,
-    onLocalAttendeeIdAvailable: (String) -> Unit
+    isJoiningOnMute: Boolean = false,
+    onLocalAttendeeIdAvailable: (String) -> Unit = {}
 )
 
 expect fun leaveMeeting()
@@ -53,3 +50,9 @@ expect fun setMute(shouldMute: Boolean): Boolean
 expect fun switchCamera()
 
 expect fun switchAudioDevice(deviceId: String?)
+
+/** Subscribe to incoming data messages on [topic]. Call after [joinMeeting]. */
+expect fun subscribeToTopic(topic: String, listener: (TextMessage) -> Unit)
+
+/** Unsubscribe from data messages on [topic]. */
+expect fun unsubscribeFromTopic(topic: String)

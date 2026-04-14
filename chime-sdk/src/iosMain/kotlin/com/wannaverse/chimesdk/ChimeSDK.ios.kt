@@ -5,6 +5,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import platform.UIKit.UIView
 
+// ─── Topic listener registry ──────────────────────────────────────────────────
+
+private val iosTopicListeners: MutableMap<String, (TextMessage) -> Unit> = mutableMapOf()
+
 // ─── Bridge object — Swift registers these before any meeting operations ─────
 
 object ChimeSdkBridge {
@@ -17,6 +21,10 @@ object ChimeSdkBridge {
     var setMuteNative: ((Boolean) -> Unit)? = null
     var switchCameraNative: (() -> Unit)? = null
     var switchAudioDeviceNative: ((String?) -> Unit)? = null
+
+    /** Swift subscribes/unsubscribes the native Chime SDK to a topic */
+    var subscribeTopicNative: ((String) -> Unit)? = null
+    var unsubscribeTopicNative: ((String) -> Unit)? = null
 
     /** Swift provides a factory that returns the pre-created UIView for local video */
     var localVideoViewFactory: (() -> UIView)? = null
@@ -35,9 +43,8 @@ object ChimeSdkBridge {
 interface ChimeIOSDelegate {
     fun onConnectionStatusChanged(status: String)
     fun onActiveSpeakersChanged(speakerIds: List<String>)
-    fun onChatMessageReceived(senderId: String, content: String, timestamp: Long)
-    fun onEmojiReceived(senderId: String, content: String, timestamp: Long)
-    fun onSystemMessage(senderId: String, content: String, timestamp: Long)
+    /** Called by Swift for every incoming data message, regardless of topic */
+    fun onDataMessageReceived(topic: String, senderId: String, content: String, timestamp: Long)
     fun onLocalVideoTileAdded(tileId: Int)
     fun onLocalVideoTileRemoved()
     fun onRemoteTileAdded(tileId: Int)
@@ -60,9 +67,7 @@ interface ChimeIOSDelegate {
 
 private class IOSDelegateToCallbacks(
     private val realTimeListener: RealTimeEventListener,
-    private val onChatMessageReceived: (TextMessage) -> Unit,
     private val onActiveSpeakersChanged: (Set<String>) -> Unit,
-    private val onEmojiReceived: (TextMessage) -> Unit,
     private val onLocalVideoTileAdded: ((Int?) -> Unit)?,
     private val onConnectionStatusChanged: (ConnectionStatus) -> Unit,
     private val onRemoteVideoAvailable: (Boolean, Int) -> Unit,
@@ -72,7 +77,6 @@ private class IOSDelegateToCallbacks(
     private val onLocalVideoTileRemoved: (() -> Unit)?,
     private val onRemoteTileAdded: ((Int) -> Unit)?,
     private val onRemoteTileRemoved: ((Int) -> Unit)?,
-    private val onSystemMessage: (TextMessage) -> Unit,
     private val onLocalAttendeeIdAvailable: (String) -> Unit
 ) : ChimeIOSDelegate {
 
@@ -92,16 +96,8 @@ private class IOSDelegateToCallbacks(
         onActiveSpeakersChanged(speakerIds.toSet())
     }
 
-    override fun onChatMessageReceived(senderId: String, content: String, timestamp: Long) {
-        onChatMessageReceived(TextMessage(senderId, content, timestamp))
-    }
-
-    override fun onEmojiReceived(senderId: String, content: String, timestamp: Long) {
-        onEmojiReceived(TextMessage(senderId, content, timestamp))
-    }
-
-    override fun onSystemMessage(senderId: String, content: String, timestamp: Long) {
-        onSystemMessage(TextMessage(senderId, content, timestamp))
+    override fun onDataMessageReceived(topic: String, senderId: String, content: String, timestamp: Long) {
+        iosTopicListeners[topic]?.invoke(TextMessage(topic, senderId, content, timestamp))
     }
 
     override fun onLocalVideoTileAdded(tileId: Int) {
@@ -183,9 +179,7 @@ actual fun joinMeeting(
     externalUserId: String,
     joinToken: String,
     realTimeListener: RealTimeEventListener,
-    onChatMessageReceived: (TextMessage) -> Unit,
     onActiveSpeakersChanged: (Set<String>) -> Unit,
-    onEmojiReceived: (TextMessage) -> Unit,
     cameraFacing: CameraFacing,
     onLocalVideoTileAdded: ((Int?) -> Unit)?,
     onConnectionStatusChanged: (ConnectionStatus) -> Unit,
@@ -197,15 +191,12 @@ actual fun joinMeeting(
     preferredAudioInputDeviceType: String?,
     onRemoteTileAdded: ((Int) -> Unit)?,
     onRemoteTileRemoved: ((Int) -> Unit)?,
-    onSystemMessage: (TextMessage) -> Unit,
     isJoiningOnMute: Boolean,
     onLocalAttendeeIdAvailable: (String) -> Unit
 ) {
     ChimeSdkBridge.eventDelegate = IOSDelegateToCallbacks(
         realTimeListener = realTimeListener,
-        onChatMessageReceived = onChatMessageReceived,
         onActiveSpeakersChanged = onActiveSpeakersChanged,
-        onEmojiReceived = onEmojiReceived,
         onLocalVideoTileAdded = onLocalVideoTileAdded,
         onConnectionStatusChanged = onConnectionStatusChanged,
         onRemoteVideoAvailable = onRemoteVideoAvailable,
@@ -215,7 +206,6 @@ actual fun joinMeeting(
         onLocalVideoTileRemoved = onLocalVideoTileRemoved,
         onRemoteTileAdded = onRemoteTileAdded,
         onRemoteTileRemoved = onRemoteTileRemoved,
-        onSystemMessage = onSystemMessage,
         onLocalAttendeeIdAvailable = onLocalAttendeeIdAvailable
     )
 
@@ -235,6 +225,7 @@ actual fun joinMeeting(
 
 actual fun leaveMeeting() {
     ChimeSdkBridge.leaveMeetingNative?.invoke()
+    iosTopicListeners.clear()
     ChimeSdkBridge.eventDelegate = null
 }
 
@@ -277,4 +268,14 @@ actual fun switchCamera() {
 
 actual fun switchAudioDevice(deviceId: String?) {
     ChimeSdkBridge.switchAudioDeviceNative?.invoke(deviceId)
+}
+
+actual fun subscribeToTopic(topic: String, listener: (TextMessage) -> Unit) {
+    iosTopicListeners[topic] = listener
+    ChimeSdkBridge.subscribeTopicNative?.invoke(topic)
+}
+
+actual fun unsubscribeFromTopic(topic: String) {
+    iosTopicListeners.remove(topic)
+    ChimeSdkBridge.unsubscribeTopicNative?.invoke(topic)
 }

@@ -66,5 +66,14 @@ enum ChimeSdkSetup {
         ChimeSdkBridge.shared.sendRealtimeMessageNative = { topic, data, lifetimeMs in
             meeting.sendRealtimeMessage(topic: topic, data: data, lifetimeMs: Int(truncating: lifetimeMs))
         }
+
+        // ── Topic subscriptions ────────────────────────────────────────────────
+        ChimeSdkBridge.shared.subscribeTopicNative = { topic in
+            meeting.subscribeTopic(topic)
+        }
+
+        ChimeSdkBridge.shared.unsubscribeTopicNative = { topic in
+            meeting.unsubscribeTopic(topic)
+        }
     }
 }
