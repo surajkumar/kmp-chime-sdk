@@ -16,6 +16,8 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultEglC
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDeviceType
 import com.amazonaws.services.chime.sdk.meetings.ingestion.DefaultAppStateMonitor
+import com.amazonaws.services.chime.sdk.meetings.realtime.datamessage.DataMessage
+import com.amazonaws.services.chime.sdk.meetings.realtime.datamessage.DataMessageObserver
 import com.amazonaws.services.chime.sdk.meetings.session.DefaultMeetingSession
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingFeatures
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionConfiguration
@@ -29,13 +31,13 @@ var meetingSession: DefaultMeetingSession? = null
 private var deviceObserver: DeviceObserver? = null
 private var realTimeObserver: RealTimeObserver? = null
 private var audioVideoObserver: AudioVideoObserver? = null
-private var chatObserver: ChatObserver? = null
 private var eventAnalyticsController: DefaultEventAnalyticsController? = null
 private var eglCoreFactory: DefaultEglCoreFactory? = null
 private var cameraCaptureSource: CameraCaptureSource? = null
 private var cachedVideoDevices: List<MediaDevice>? = null
 private var currentCameraFacing = CameraFacing.FRONT
 private var cameraOn = false
+private val topicObservers = mutableMapOf<String, DataMessageObserver>()
 
 actual fun joinMeeting(
     externalMeetingId: String,
@@ -49,9 +51,7 @@ actual fun joinMeeting(
     externalUserId: String,
     joinToken: String,
     realTimeListener: RealTimeEventListener,
-    onChatMessageReceived: (TextMessage) -> Unit,
     onActiveSpeakersChanged: (Set<String>) -> Unit,
-    onEmojiReceived: (TextMessage) -> Unit,
     cameraFacing: CameraFacing,
     onLocalVideoTileAdded: ((Int?) -> Unit)?,
     onConnectionStatusChanged: (ConnectionStatus) -> Unit,
@@ -63,7 +63,6 @@ actual fun joinMeeting(
     preferredAudioInputDeviceType: String?,
     onRemoteTileAdded: ((Int) -> Unit)?,
     onRemoteTileRemoved: ((Int) -> Unit)?,
-    onSystemMessage: (TextMessage) -> Unit,
     isJoiningOnMute: Boolean,
     onLocalAttendeeIdAvailable: (String) -> Unit
 ) {
@@ -152,15 +151,6 @@ actual fun joinMeeting(
         policy = DefaultActiveSpeakerPolicy()
     )
 
-    chatObserver = ChatObserver(
-        onChatMessageReceived = onChatMessageReceived,
-        onEmojiReceived = onEmojiReceived,
-        onSystemMessage = onSystemMessage
-    )
-    meetingSession!!.audioVideo.addRealtimeDataMessageObserver("chat", chatObserver!!)
-    meetingSession!!.audioVideo.addRealtimeDataMessageObserver("emoji", chatObserver!!)
-    meetingSession!!.audioVideo.addRealtimeDataMessageObserver("system", chatObserver!!)
-
     meetingSession!!.audioVideo.start()
     meetingSession!!.audioVideo.startRemoteVideo()
 }
@@ -183,11 +173,10 @@ actual fun leaveMeeting() {
         audioVideoObserver?.let { meetingSession?.audioVideo?.removeAudioVideoObserver(it) }
         meetingSession?.audioVideo?.removeActiveSpeakerObserver(MeetingActiveSpeakerObserver)
 
-        chatObserver?.let {
-            meetingSession?.audioVideo?.removeRealtimeDataMessageObserverFromTopic("chat")
-            meetingSession?.audioVideo?.removeRealtimeDataMessageObserverFromTopic("emoji")
-            meetingSession?.audioVideo?.removeRealtimeDataMessageObserverFromTopic("system")
+        topicObservers.forEach { (topic, _) ->
+            meetingSession?.audioVideo?.removeRealtimeDataMessageObserverFromTopic(topic)
         }
+        topicObservers.clear()
 
         meetingSession?.audioVideo?.stop()
         deviceObserver?.clearCurrentDevice()
@@ -200,7 +189,6 @@ actual fun leaveMeeting() {
         meetingSession = null
         deviceObserver = null
         realTimeObserver = null
-        chatObserver = null
         audioVideoObserver = null
         eventAnalyticsController = null
         cameraCaptureSource = null
@@ -333,4 +321,25 @@ actual fun switchAudioDevice(deviceId: String?) {
     }
 
     target?.let { meetingSession?.audioVideo?.chooseAudioDevice(it) }
+}
+
+actual fun subscribeToTopic(topic: String, listener: (TextMessage) -> Unit) {
+    val session = meetingSession ?: return
+    val observer = object : DataMessageObserver {
+        override fun onDataMessageReceived(dataMessage: DataMessage) {
+            listener(TextMessage(
+                topic = dataMessage.topic,
+                senderId = dataMessage.senderAttendeeId,
+                content = dataMessage.text(),
+                timestamp = dataMessage.timestampMs
+            ))
+        }
+    }
+    topicObservers[topic] = observer
+    session.audioVideo.addRealtimeDataMessageObserver(topic, observer)
+}
+
+actual fun unsubscribeFromTopic(topic: String) {
+    meetingSession?.audioVideo?.removeRealtimeDataMessageObserverFromTopic(topic)
+    topicObservers.remove(topic)
 }

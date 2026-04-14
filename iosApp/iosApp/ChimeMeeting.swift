@@ -13,6 +13,7 @@ class ChimeMeeting: NSObject {
     private var videoTileManager: VideoTileManager?
     private var muted = false
     private var isFrontCamera = true
+    private var subscribedTopics: Set<String> = []
 
     // Pre-created local render view; remote views are created per-tile in VideoTileManager
     let localRenderView = DefaultVideoRenderView()
@@ -85,9 +86,7 @@ class ChimeMeeting: NSObject {
             policy: DefaultActiveSpeakerPolicy(),
             observer: self
         )
-        meetingSession?.audioVideo.addRealtimeDataMessageObserver(topic: "chat", observer: self)
-        meetingSession?.audioVideo.addRealtimeDataMessageObserver(topic: "emoji", observer: self)
-        meetingSession?.audioVideo.addRealtimeDataMessageObserver(topic: "system", observer: self)
+        // Topics are registered via subscribeTopic() after joinMeeting()
 
         // Notify Kotlin of local attendee ID
         ChimeSdkBridge.shared.eventDelegate?.onLocalAttendeeIdAvailable(attendeeId: attendeeId)
@@ -156,9 +155,10 @@ class ChimeMeeting: NSObject {
         session.audioVideo.removeRealtimeObserver(observer: self)
         session.audioVideo.removeDeviceChangeObserver(observer: self)
         session.audioVideo.removeActiveSpeakerObserver(observer: self)
-        session.audioVideo.removeRealtimeDataMessageObserverFromTopic(topic: "chat")
-        session.audioVideo.removeRealtimeDataMessageObserverFromTopic(topic: "emoji")
-        session.audioVideo.removeRealtimeDataMessageObserverFromTopic(topic: "system")
+        subscribedTopics.forEach {
+            session.audioVideo.removeRealtimeDataMessageObserverFromTopic(topic: $0)
+        }
+        subscribedTopics.removeAll()
 
         meetingSession = nil
         videoTileManager = nil
@@ -212,6 +212,18 @@ class ChimeMeeting: NSObject {
             data: data,
             lifetimeMs: Int32(lifetimeMs)
         )
+    }
+
+    func subscribeTopic(_ topic: String) {
+        guard let session = meetingSession else { return }
+        subscribedTopics.insert(topic)
+        session.audioVideo.addRealtimeDataMessageObserver(topic: topic, observer: self)
+    }
+
+    func unsubscribeTopic(_ topic: String) {
+        guard let session = meetingSession else { return }
+        subscribedTopics.remove(topic)
+        session.audioVideo.removeRealtimeDataMessageObserverFromTopic(topic: topic)
     }
 }
 
@@ -378,25 +390,11 @@ extension ChimeMeeting: ActiveSpeakerObserver {
 
 extension ChimeMeeting: DataMessageObserver {
     func dataMessageDidReceived(dataMessage: DataMessage) {
-        let sender = dataMessage.senderAttendeeId
-        let content = dataMessage.text() ?? ""
-        let timestamp = dataMessage.timestampMs
-
-        switch dataMessage.topic {
-        case "chat":
-            ChimeSdkBridge.shared.eventDelegate?.onChatMessageReceived(
-                senderId: sender, content: content, timestamp: timestamp
-            )
-        case "emoji":
-            ChimeSdkBridge.shared.eventDelegate?.onEmojiReceived(
-                senderId: sender, content: content, timestamp: timestamp
-            )
-        case "system":
-            ChimeSdkBridge.shared.eventDelegate?.onSystemMessage(
-                senderId: sender, content: content, timestamp: timestamp
-            )
-        default:
-            break
-        }
+        ChimeSdkBridge.shared.eventDelegate?.onDataMessageReceived(
+            topic: dataMessage.topic,
+            senderId: dataMessage.senderAttendeeId,
+            content: dataMessage.text() ?? "",
+            timestamp: dataMessage.timestampMs
+        )
     }
 }

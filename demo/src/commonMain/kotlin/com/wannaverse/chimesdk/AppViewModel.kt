@@ -92,14 +92,8 @@ class AppViewModel(
                     externalUserId = info.externalUserId.ifBlank { info.attendeeId },
                     joinToken = info.joinToken,
                     realTimeListener = this@AppViewModel,
-                    onChatMessageReceived = { msg ->
-                        _callState.update { it.copy(chatMessages = it.chatMessages + msg) }
-                    },
                     onActiveSpeakersChanged = { speakers ->
                         _callState.update { it.copy(activeSpeakers = speakers) }
-                    },
-                    onEmojiReceived = { emoji ->
-                        _callState.update { it.copy(emojiMessages = it.emojiMessages + emoji) }
                     },
                     cameraFacing = facing,
                     onLocalVideoTileAdded = { _ ->
@@ -130,14 +124,23 @@ class AppViewModel(
                     onRemoteTileRemoved = { tileId ->
                         _callState.update { it.copy(remoteTileIds = it.remoteTileIds - tileId) }
                     },
-                    onSystemMessage = { msg ->
-                        _callState.update { it.copy(systemMessages = it.systemMessages + msg) }
-                    },
                     isJoiningOnMute = startMuted,
                     onLocalAttendeeIdAvailable = { id ->
                         _callState.update { it.copy(localAttendeeId = id) }
                     }
                 )
+
+                // Subscribe to topics — demo-defined; the library has no opinion on these
+                subscribeToTopic("chat") { msg ->
+                    _callState.update { it.copy(chatMessages = it.chatMessages + msg) }
+                }
+                subscribeToTopic("emoji") { msg ->
+                    _callState.update { it.copy(emojiMessages = it.emojiMessages + msg) }
+                }
+                subscribeToTopic("system") { msg ->
+                    _callState.update { it.copy(systemMessages = it.systemMessages + msg) }
+                }
+
                 startLocalVideo()
                 _callState.update { it.copy(isLoading = false, isJoined = true, isMuted = startMuted) }
             } catch (e: Exception) {
