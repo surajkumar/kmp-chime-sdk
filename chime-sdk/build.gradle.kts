@@ -10,6 +10,9 @@ plugins {
     alias(libs.plugins.publishing)
 }
 
+group = "com.wannaverse"
+version = "0.0.0"
+
 kotlin {
     androidTarget {
         compilerOptions {
