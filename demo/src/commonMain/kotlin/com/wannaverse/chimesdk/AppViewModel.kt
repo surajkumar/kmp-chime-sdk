@@ -80,7 +80,7 @@ class AppViewModel(
 
         viewModelScope.launch {
             try {
-                com.wannaverse.chimesdk.joinMeeting(
+                joinMeeting(
                     externalMeetingId = info.externalMeetingId.ifBlank { info.meetingId },
                     meetingId = info.meetingId,
                     audioHostURL = info.audioHostURL,
@@ -195,10 +195,6 @@ class AppViewModel(
         if (text.isBlank()) return
         sendRealtimeMessage("chat", text)
         _chatInput.value = ""
-    }
-
-    fun sendEmoji(emoji: String) {
-        sendRealtimeMessage("emoji", emoji)
     }
 
     fun selectAudioDevice(device: AudioDevice) {
