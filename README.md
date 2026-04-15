@@ -2,6 +2,8 @@
 
 A Kotlin Multiplatform library for [Amazon Chime SDK](https://aws.amazon.com/chime/chime-sdk/) meetings on Android and iOS. Exposes a single shared API via Compose Multiplatform: join meetings, send and receive audio/video, and exchange real-time data messages without writing platform-specific code.
 
+Local: ./gradlew :chime-sdk:publishToMavenLocal -PskipSigning
+
 ---
 
 ## Installation

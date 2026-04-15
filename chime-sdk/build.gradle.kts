@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "com.wannaverse"
-version = "0.1.0"
+version = "0.2.0"
 
 kotlin {
     androidTarget {
@@ -23,9 +23,6 @@ kotlin {
         publishLibraryVariantsGroupedByFlavor = true
     }
 
-    // linkOnly = true: pod is installed and built (for linking), but the cocoapods plugin
-    // does NOT generate the cinterop klib — we do that explicitly in each target block below
-    // so it is properly wired to the compile classpath (auto-wiring is broken in Kotlin 2.3.x).
     cocoapods {
         summary = "KMP wrapper for Amazon ChimeSDK"
         homepage = "https://github.com/WannaverseOfficial/kmp-chime-sdk"
@@ -111,7 +108,9 @@ android {
 mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
 
-    signAllPublications()
+    if (!project.hasProperty("skipSigning")) {
+        signAllPublications()
+    }
 
     coordinates(group.toString(), "chimesdk", version.toString())
 
@@ -142,7 +141,6 @@ mavenPublishing {
     }
 }
 
-// Ensure the pod framework is built before our cinterop tasks process its headers.
 afterEvaluate {
     tasks.findByName("cinteropAmazonChimeSDKIosSimulatorArm64")
         ?.dependsOn("podBuildAmazonChimeSDKIosSimulator")
