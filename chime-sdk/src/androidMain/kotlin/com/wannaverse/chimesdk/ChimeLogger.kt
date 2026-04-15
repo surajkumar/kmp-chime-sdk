@@ -26,7 +26,7 @@ class ChimeLogger : Logger {
     }
 
     override fun verbose(tag: String, msg: String) {
-        if (currentLogLevel.ordinal >= LogLevel.VERBOSE.ordinal) Log.v(tag, msg)
+        if (currentLogLevel.ordinal == LogLevel.VERBOSE.ordinal) Log.v(tag, msg)
     }
 
     override fun warn(tag: String, msg: String) {

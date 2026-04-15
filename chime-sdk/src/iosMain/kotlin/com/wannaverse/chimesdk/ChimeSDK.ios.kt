@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+@file:OptIn(ExperimentalForeignApi::class)
 
 package com.wannaverse.chimesdk
 
@@ -6,7 +6,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.cValue
+import platform.CoreGraphics.CGRect
 import platform.UIKit.UIView
+
+private class RemoteVideoContainerView(
+    private val tileId: Int
+) : UIView(frame = cValue<CGRect>()) {
+    override fun layoutSubviews() {
+        super.layoutSubviews()
+        val actual = chimeMeeting.getRemoteView(tileId) ?: return
+        if (actual.superview != this) {
+            subviews.forEach { subview ->
+                (subview as? UIView)?.removeFromSuperview()
+            }
+            addSubview(actual)
+            chimeMeeting.rebindRemoteView(tileId)
+        }
+        actual.setFrame(bounds)
+    }
+}
 
 actual fun joinMeeting(
     externalMeetingId: String,
@@ -58,7 +77,9 @@ actual fun joinMeeting(
         ingestionURL = ingestionURL,
         attendeeId = attendeeId,
         externalUserId = externalUserId,
-        joinToken = joinToken
+        joinToken = joinToken,
+        cameraFacing = cameraFacing,
+        startMuted = isJoiningOnMute
     )
 }
 
@@ -76,12 +97,28 @@ actual fun stopLocalVideo() {
 
 @Composable
 actual fun LocalVideoView(modifier: Modifier, cameraFacing: CameraFacing, isOnTop: Boolean) {
-    UIKitView(factory = { chimeMeeting.localRenderView }, modifier = modifier)
+    UIKitView(
+        factory = {
+            chimeMeeting.localVideoContainer
+        },
+        modifier = modifier,
+        update = {
+            chimeMeeting.localRenderView.setFrame(it.bounds)
+        }
+    )
 }
 
 @Composable
 actual fun RemoteVideoView(modifier: Modifier, tileId: Int, isOnTop: Boolean) {
-    UIKitView(factory = { chimeMeeting.getRemoteView(tileId) ?: UIView() }, modifier = modifier)
+    UIKitView(
+        factory = {
+            RemoteVideoContainerView(tileId)
+        },
+        modifier = modifier,
+        update = { view ->
+            (view as? RemoteVideoContainerView)?.setNeedsLayout()
+        }
+    )
 }
 
 actual fun sendRealtimeMessage(topic: String, data: String, lifetimeMs: Long) {
@@ -89,8 +126,7 @@ actual fun sendRealtimeMessage(topic: String, data: String, lifetimeMs: Long) {
 }
 
 actual fun setMute(shouldMute: Boolean): Boolean {
-    chimeMeeting.setMute(shouldMute)
-    return shouldMute
+    return chimeMeeting.setMute(shouldMute)
 }
 
 actual fun switchCamera() {
