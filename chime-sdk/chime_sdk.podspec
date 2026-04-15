@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
     spec.name                     = 'chime_sdk'
-    spec.version                  = '0.2.22'
+    spec.version                  = '0.2.0'
     spec.homepage                 = 'https://github.com/WannaverseOfficial/kmp-chime-sdk'
     spec.source                   = { :http=> ''}
     spec.authors                  = ''
