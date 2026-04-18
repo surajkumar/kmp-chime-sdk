@@ -6,6 +6,5 @@ package com.wannaverse.chimesdk
  * @property type Platform-specific device type constant.
  * @property label Human-readable device name.
  * @property id Opaque device identifier. Pass to [switchAudioDevice] to activate this device.
- * @property isSelected Whether this device is currently active.
  */
-data class AudioDevice(val type: Int, val label: String, val id: String?, var isSelected: Boolean)
+data class AudioDevice(val type: Int, val label: String, val id: String?)

@@ -16,8 +16,7 @@ class DeviceObserver(
             AudioDevice(
                 label = device.label,
                 type = device.type.ordinal,
-                id = device.id,
-                isSelected = device.id == currentSelectedDevice?.id
+                id = device.id
             )
         }
 
