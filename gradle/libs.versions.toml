@@ -7,7 +7,7 @@ androidx-activity = "1.13.0"
 androidx-lifecycle = "2.10.0"
 composeMultiplatform = "1.10.3"
 kotlin = "2.3.20"
-material3 = "1.10.0-alpha05"
+material3 = "1.11.0-alpha07"
 kermit = "2.1.0"
 
 amazonChimeSdk = "0.25.2"
