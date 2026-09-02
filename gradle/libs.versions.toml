@@ -1,23 +1,33 @@
 [versions]
 kotlin = "2.4.10"
 compose = "1.11.1"
-agp = "9.2.1"
-activityKtx = "1.13.0"
+
+agp = "9.3.2"
+activity = "1.13.0"
+
+kotlinx = "1.11.0"
+
+chime = "0.25.4"
 
 [libraries]
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose" }
 
-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activityKtx" }
+activity-ktx = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
 
-amazon-chime-sdk = { module = "software.aws.chimesdk:amazon-chime-sdk", version = "0.25.4" }
-amazon-chime-sdk-media = { module = "software.aws.chimesdk:amazon-chime-sdk-media", version = "0.25.3" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx" }
+
+chime = { group = "software.aws.chimesdk", name = "amazon-chime-sdk", version.ref = "chime" }
+chime-media = { group = "software.aws.chimesdk", name = "amazon-chime-sdk-media", version.ref = "chime" }
 
 [plugins]
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
 kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+
+kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+
 dokka = { id = "org.jetbrains.dokka", version = "2.2.0" }
 publishing = { id = "com.vanniktech.maven.publish", version = "0.37.0" }

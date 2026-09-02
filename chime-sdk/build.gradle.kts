@@ -5,13 +5,14 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform.library)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.dokka)
     alias(libs.plugins.publishing)
     kotlin("native.cocoapods")
 }
 
 group = "com.wannaverse"
-version = "0.5.0"
+version = "0.5.10"
 
 kotlin {
     jvmToolchain(21)
@@ -73,13 +74,16 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.activity.ktx)
 
-            implementation(libs.amazon.chime.sdk)
-            implementation(libs.amazon.chime.sdk.media)
+            implementation(libs.chime)
+            implementation(libs.chime.media)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.ui)
+        }
+        iosMain.dependencies {
+            implementation(libs.kotlinx.serialization.json)
         }
     }
 }

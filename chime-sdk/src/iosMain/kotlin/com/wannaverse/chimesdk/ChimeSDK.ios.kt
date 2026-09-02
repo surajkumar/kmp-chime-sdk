@@ -3,10 +3,17 @@
 package com.wannaverse.chimesdk
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
-import cocoapods.AmazonChimeSDK.CameraCaptureSourceProtocol
+import androidx.compose.ui.zIndex
 import cocoapods.AmazonChimeSDK.ConsoleLogger
 import cocoapods.AmazonChimeSDK.DefaultActiveSpeakerPolicy
 import cocoapods.AmazonChimeSDK.DefaultCameraCaptureSource
@@ -22,7 +29,11 @@ import cocoapods.AmazonChimeSDK.MediaDeviceTypeVideoFrontCamera
 import cocoapods.AmazonChimeSDK.MeetingSessionConfiguration
 import cocoapods.AmazonChimeSDK.MeetingSessionCredentials
 import cocoapods.AmazonChimeSDK.MeetingSessionURLs
+import cocoapods.AmazonChimeSDK.URLRewriterUtils
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionCategoryOptionAllowBluetoothA2DP
 import platform.AVFAudio.AVAudioSessionCategoryOptionAllowBluetoothHFP
@@ -32,8 +43,16 @@ import platform.AVFAudio.setActive
 import platform.AVFoundation.AVCaptureDevice
 import platform.AVFoundation.AVMediaTypeVideo
 import platform.AVFoundation.requestAccessForMediaType
+import platform.CoreGraphics.CGFloat
+import platform.CoreGraphics.CGRect
+import platform.CoreGraphics.CGRectDivide
+import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSOperationQueue
+import platform.Foundation.NSUserDefaults
+import platform.ReplayKit.RPSystemBroadcastPickerView
+import platform.UIKit.UIView
 import platform.UIKit.UIViewContentMode
+import platform.UIKit.UIViewController
 import platform.darwin.NSObject
 
 private val logger = ConsoleLogger(name = "ChimeSDK", level = LogLevelINFO)
@@ -75,7 +94,7 @@ actual class ChimeSDK(
                 externalMeetingId = externalMeetingId,
                 credentials = credentials,
                 urls = urls,
-                urlRewriter = { it }
+                urlRewriter = URLRewriterUtils.defaultUrlRewriter()
             )
 
             val meetingSession =
@@ -204,6 +223,70 @@ actual class ChimeSDK(
         }
     }
 
+    private var showScreenCapture by mutableStateOf(false)
+
+    @OptIn(ExperimentalComposeUiApi::class)
+    @Composable
+    actual fun initializeMeetingScreen() {
+        SideEffect {
+            val meetingSessionConfig = meetingSession.configuration()
+            val meetingId = meetingSessionConfig.meetingId()
+            val meetingCredentials = meetingSessionConfig.credentials()
+            val meetingUrls = meetingSessionConfig.urls()
+
+            val userDefaultsMeetingIdKey = "meetingId"
+            val userDefaultsCredentialsKey = "meetingCredentials"
+            val userDefaultsUrlsKey = "meetingUrls"
+
+            val credentials = buildJsonObject {
+                put("attendeeId", meetingCredentials.attendeeId())
+                put("externalUserId", meetingCredentials.externalUserId())
+                put("joinToken", meetingCredentials.joinToken())
+            }.toString()
+            val urls = buildJsonObject {
+                put("audioFallbackUrl", meetingUrls.audioFallbackUrl())
+                put("audioHostUrl", meetingUrls.audioHostUrl())
+                put("turnControlUrl", meetingUrls.turnControlUrl())
+                put("signalingUrl", meetingUrls.signalingUrl())
+                put("ingestionUrl", meetingUrls.ingestionUrl())
+            }.toString()
+
+            println("kud mc $credentials")
+            println("kud mu $urls")
+
+            NSUserDefaults(suiteName = "group.com.wannacall.app.WannaCall").apply {
+                setObject(value = meetingId, forKey = userDefaultsMeetingIdKey)
+                setObject(value = credentials, forKey = userDefaultsCredentialsKey)
+                setObject(value = urls, forKey = userDefaultsUrlsKey)
+            }
+        }
+
+        val broadcastPickerContainerView = remember { UIView() }
+
+        val broadcastPicker = remember {
+            RPSystemBroadcastPickerView(CGRectMake(0.0, 0.0, 35.0, 35.0)).apply {
+                setPreferredExtension("com.wannacall.app.WannaCall.ScreenCaptureService")
+                setShowsMicrophoneButton(false)
+            }
+        }
+
+
+        UIKitView(
+            factory = {
+                broadcastPickerContainerView.addSubview(broadcastPicker)
+
+                broadcastPickerContainerView
+            },
+            modifier = Modifier.zIndex(99f),
+            properties = UIKitInteropProperties(
+                placedAsOverlay = true
+            ),
+            update = {
+                it.bringSubviewToFront(broadcastPicker)
+            }
+        )
+    }
+
     actual fun getActiveAudioDevice(): AudioDevice? = meetingSession.audioVideo()
         .getActiveAudioDevice()
         ?.let { device ->
@@ -281,10 +364,10 @@ actual class ChimeSDK(
         factory = {
             (videoTileObserver.getRemoteView(tileId)
                 ?: throw IllegalArgumentException("Remote view for tile $tileId not found")
-            ).apply {
-                contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill
-                layer.masksToBounds = true
-            }
+                    ).apply {
+                    contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill
+                    layer.masksToBounds = true
+                }
         },
         modifier = modifier,
         update = {}
@@ -338,5 +421,13 @@ actual class ChimeSDK(
             error = null
         )
         audioSession.setActive(true, null)
+    }
+
+    actual fun startScreenShare() {
+        showScreenCapture = true
+    }
+
+    actual fun stopScreenShare() {
+        showScreenCapture = false
     }
 }

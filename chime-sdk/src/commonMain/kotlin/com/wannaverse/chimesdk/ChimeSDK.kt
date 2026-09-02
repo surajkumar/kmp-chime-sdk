@@ -78,6 +78,9 @@ expect class ChimeSDK {
         onRemoteTileRemoved: () -> Unit
     )
 
+    @Composable
+    fun initializeMeetingScreen()
+
     /**
      * Returns the currently active audio device for this session, or null if no device is active.
      *
@@ -199,4 +202,8 @@ expect class ChimeSDK {
      * @param topic Topic previously passed to [subscribeToTopic].
      */
     fun unsubscribeFromTopic(topic: String)
+
+    fun startScreenShare()
+
+    fun stopScreenShare()
 }

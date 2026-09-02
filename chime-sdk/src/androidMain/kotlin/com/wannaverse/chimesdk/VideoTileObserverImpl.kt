@@ -13,7 +13,7 @@ class VideoTileObserverImpl(
     private val onRemoteTileAdded: (Int) -> Unit,
     private val onRemoteTileRemoved: () -> Unit
 ) : VideoTileObserver {
-    internal val localRenderView = TextureRenderView(ChimeSDK.applicationContext)
+    internal val localRenderView = TextureRenderView(ChimeSDK.activity)
     private val remoteRenderView: MutableMap<Int, TextureRenderView> = mutableMapOf()
 
     fun getRemoteRenderView(tileId: Int): TextureRenderView? = remoteRenderView[tileId]
@@ -23,7 +23,7 @@ class VideoTileObserverImpl(
             meetingSession.audioVideo.bindVideoView(localRenderView, tileState.tileId)
             onLocalTileAdded(tileState.tileId)
         } else {
-            remoteRenderView[tileState.tileId] = TextureRenderView(ChimeSDK.applicationContext)
+            remoteRenderView[tileState.tileId] = TextureRenderView(ChimeSDK.activity)
             meetingSession.audioVideo.bindVideoView(remoteRenderView[tileState.tileId]!!, tileState.tileId)
             onRemoteTileAdded(tileState.tileId)
         }

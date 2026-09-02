@@ -1,8 +1,16 @@
 package com.wannaverse.chimesdk
 
+import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.hardware.camera2.CameraManager
+import android.media.projection.MediaProjectionManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -10,8 +18,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.amazonaws.services.chime.sdk.meetings.analytics.DefaultEventAnalyticsController
 import com.amazonaws.services.chime.sdk.meetings.analytics.DefaultMeetingStatsCollector
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerpolicy.DefaultActiveSpeakerPolicy
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.capture.CameraCaptureSource
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.contentshare.ContentShareSource
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.capture.DefaultCameraCaptureSource
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.capture.DefaultScreenCaptureSource
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.capture.DefaultSurfaceTextureCaptureSourceFactory
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultEglCoreFactory
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
@@ -31,14 +40,12 @@ actual class ChimeSDK(
     private val eglCoreFactory: DefaultEglCoreFactory
 ) {
     actual companion object {
-        internal lateinit var applicationContext: Context
-
-        fun initialize(applicationContext: Context) {
-            this.applicationContext = applicationContext
-        }
+        internal lateinit var activity: ComponentActivity
 
         context(activity: ComponentActivity)
-        fun initialize() = initialize(activity.applicationContext)
+        fun initialize() {
+            this.activity = activity
+        }
 
         private val logger = ConsoleLogger(LogLevel.INFO)
 
@@ -85,7 +92,7 @@ actual class ChimeSDK(
                 DefaultMeetingSession(
                     meetingSessionConfiguration,
                     logger,
-                    applicationContext,
+                    activity.applicationContext,
                     eglCoreFactory
                 )
 
@@ -99,14 +106,6 @@ actual class ChimeSDK(
     private lateinit var audioVideoObserver: AudioVideoObserverImpl
     private lateinit var activeSpeakerObserver: ActiveSpeakerObserverImpl
     private lateinit var dataMessageObserver: DataMessageObserverImpl
-
-    private var cameraCaptureSource: DefaultCameraCaptureSource? = null
-
-    private fun stopCameraCaptureSource() {
-        cameraCaptureSource?.torchEnabled = false
-        cameraCaptureSource?.stop()
-        cameraCaptureSource = null
-    }
 
     actual fun getAvailableInputDevices(): List<AudioDevice> =
         meetingSession.audioVideo
@@ -202,6 +201,60 @@ actual class ChimeSDK(
         meetingSession.audioVideo.startRemoteVideo()
     }
 
+    private var cameraCaptureSource: DefaultCameraCaptureSource? = null
+
+    private fun stopCameraCaptureSource() {
+        cameraCaptureSource?.torchEnabled = false
+        cameraCaptureSource?.stop()
+        cameraCaptureSource = null
+
+        meetingSession.audioVideo.stopLocalVideo()
+    }
+
+    private var screenCaptureSource: DefaultScreenCaptureSource? = null
+    private var screenCaptureServiceIntent: Intent? = null
+
+    private fun stopScreenCaptureSource() {
+        screenCaptureSource?.stop()
+        activity.stopService(screenCaptureServiceIntent)
+        screenCaptureSource = null
+        screenCaptureServiceIntent = null
+
+        meetingSession.audioVideo.stopContentShare()
+    }
+
+    private lateinit var screenCaptureLauncher: ManagedActivityResultLauncher<Intent, ActivityResult>
+
+    @SuppressLint("ComposableNaming")
+    @Composable
+    actual fun initializeMeetingScreen() {
+        screenCaptureLauncher =
+            rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                if (it.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
+
+                with(activity) {
+                    screenCaptureServiceIntent = Intent(this, ScreenCaptureService::class.java)
+                    startService(screenCaptureServiceIntent)
+
+                    screenCaptureSource = DefaultScreenCaptureSource(
+                        this,
+                        logger,
+                        DefaultSurfaceTextureCaptureSourceFactory(logger, eglCoreFactory),
+                        it.resultCode,
+                        it.data!!
+                    )
+                    screenCaptureSource!!.start()
+
+                    val contentShareSource = ContentShareSource().apply {
+                        videoSource = screenCaptureSource
+                    }
+
+                    println("starting share")
+                    meetingSession.audioVideo.startContentShare(contentShareSource)
+                }
+            }
+    }
+
     actual fun getActiveAudioDevice(): AudioDevice? = meetingSession.audioVideo
         .getActiveAudioDevice()
         ?.let { device ->
@@ -230,20 +283,19 @@ actual class ChimeSDK(
         meetingSession.audioVideo.removeActiveSpeakerObserver(activeSpeakerObserver)
         dataMessageObserver.clearListeners()
 
-        meetingSession.audioVideo.stopLocalVideo()
         meetingSession.audioVideo.stopRemoteVideo()
         meetingSession.audioVideo.stop()
     }
 
     actual fun startLocalVideo(cameraFacing: CameraFacing) {
-        val cameraManager = applicationContext.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val cameraManager = activity.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val camera = MediaDevice.listVideoDevices(cameraManager).first {
             it.type == if (cameraFacing == CameraFacing.FRONT) MediaDeviceType.VIDEO_FRONT_CAMERA else MediaDeviceType.VIDEO_BACK_CAMERA
         }
 
         val factory = DefaultSurfaceTextureCaptureSourceFactory(logger, eglCoreFactory)
         cameraCaptureSource = DefaultCameraCaptureSource(
-            context = applicationContext,
+            context = activity,
             logger = logger,
             surfaceTextureCaptureSourceFactory = factory,
             eventAnalyticsController = eventAnalyticsController
@@ -255,10 +307,7 @@ actual class ChimeSDK(
         }
     }
 
-    actual fun stopLocalVideo() {
-        meetingSession.audioVideo.stopLocalVideo()
-        stopCameraCaptureSource()
-    }
+    actual fun stopLocalVideo() = stopCameraCaptureSource()
 
     @Composable
     actual fun LocalVideoView(cameraFacing: CameraFacing, modifier: Modifier) {
@@ -313,4 +362,13 @@ actual class ChimeSDK(
         dataMessageObserver.addListener(topic, listener)
 
     actual fun unsubscribeFromTopic(topic: String) = dataMessageObserver.removeListener(topic)
+
+    actual fun startScreenShare() {
+        val mediaProjectionManager =
+            activity.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+
+        screenCaptureLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+    }
+
+    actual fun stopScreenShare() = stopScreenCaptureSource()
 }
