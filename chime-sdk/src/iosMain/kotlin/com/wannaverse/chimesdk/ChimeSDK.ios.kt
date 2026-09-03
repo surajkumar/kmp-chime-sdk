@@ -57,13 +57,22 @@ import platform.UIKit.UIViewContentMode
 import platform.darwin.NSObject
 import platform.darwin.nil
 
-private val logger = ConsoleLogger(name = "ChimeSDK", level = LogLevelINFO)
+// Due to a kotlin limitation we cannot create fields in companion objects of classes which extend from objc
+private object CompanionObject {
+    val logger = ConsoleLogger(name = "ChimeSDK", level = LogLevelINFO)
+
+    lateinit var bundleIdentifier: String
+}
 
 @Suppress(names = ["EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING"])
 actual class ChimeSDK(
     private val meetingSession: DefaultMeetingSession
 ) : NSObject() {
     actual companion object {
+        fun initialize(bundleIdentifier: String) {
+            CompanionObject.bundleIdentifier = bundleIdentifier
+        }
+
         actual fun createSession(
             externalMeetingId: String,
             meetingId: String,
@@ -100,7 +109,7 @@ actual class ChimeSDK(
             )
 
             val meetingSession =
-                DefaultMeetingSession(configuration = configuration, logger = logger)
+                DefaultMeetingSession(configuration = configuration, logger = CompanionObject.logger)
 
             return ChimeSDK(meetingSession)
         }
@@ -265,7 +274,7 @@ actual class ChimeSDK(
                 it.type() == if (cameraFacing == CameraFacing.FRONT) MediaDeviceTypeVideoFrontCamera else MediaDeviceTypeVideoBackCamera
             }
 
-        cameraCaptureSource = DefaultCameraCaptureSource(logger).apply {
+        cameraCaptureSource = DefaultCameraCaptureSource(CompanionObject.logger).apply {
             setDevice(camera)
             start()
 
@@ -388,7 +397,7 @@ actual class ChimeSDK(
                 put("ingestionUrl", meetingUrls.ingestionUrl())
             }.toString()
 
-            NSUserDefaults(suiteName = "group.com.wannacall.app.WannaCall").apply {
+            NSUserDefaults(suiteName = "group.${CompanionObject.bundleIdentifier}").apply {
                 setObject(meetingId as NSString, forKey = userDefaultsMeetingIdKey)
                 setObject(credentialsJson as NSString, forKey = userDefaultsCredentialsKey)
                 setObject(urlsJson as NSString, forKey = userDefaultsUrlsKey)
@@ -405,7 +414,7 @@ actual class ChimeSDK(
                     height = pickerViewDiameter
                 )
             ).apply {
-                setPreferredExtension("com.wannacall.app.WannaCall.ScreenCaptureService")
+                setPreferredExtension("${CompanionObject.bundleIdentifier}.ScreenCaptureService")
                 setShowsMicrophoneButton(false)
             }
         }
