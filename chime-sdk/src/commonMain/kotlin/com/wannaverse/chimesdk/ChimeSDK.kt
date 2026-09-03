@@ -199,4 +199,7 @@ expect class ChimeSDK {
      * @param topic Topic previously passed to [subscribeToTopic].
      */
     fun unsubscribeFromTopic(topic: String)
+
+    @Composable
+    fun ScreenShareButton()
 }

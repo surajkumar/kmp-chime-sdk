@@ -2,11 +2,16 @@
 
 package com.wannaverse.chimesdk
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
-import cocoapods.AmazonChimeSDK.CameraCaptureSourceProtocol
+import androidx.compose.ui.zIndex
 import cocoapods.AmazonChimeSDK.ConsoleLogger
 import cocoapods.AmazonChimeSDK.DefaultActiveSpeakerPolicy
 import cocoapods.AmazonChimeSDK.DefaultCameraCaptureSource
@@ -22,7 +27,10 @@ import cocoapods.AmazonChimeSDK.MediaDeviceTypeVideoFrontCamera
 import cocoapods.AmazonChimeSDK.MeetingSessionConfiguration
 import cocoapods.AmazonChimeSDK.MeetingSessionCredentials
 import cocoapods.AmazonChimeSDK.MeetingSessionURLs
+import cocoapods.AmazonChimeSDK.URLRewriterUtils
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionCategoryOptionAllowBluetoothA2DP
 import platform.AVFAudio.AVAudioSessionCategoryOptionAllowBluetoothHFP
@@ -32,17 +40,39 @@ import platform.AVFAudio.setActive
 import platform.AVFoundation.AVCaptureDevice
 import platform.AVFoundation.AVMediaTypeVideo
 import platform.AVFoundation.requestAccessForMediaType
+import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSOperationQueue
+import platform.Foundation.NSString
+import platform.Foundation.NSUserDefaults
+import platform.ReplayKit.RPSystemBroadcastPickerView
+import platform.UIKit.NSLayoutAttributeCenterX
+import platform.UIKit.NSLayoutAttributeCenterY
+import platform.UIKit.NSLayoutAttributeHeight
+import platform.UIKit.NSLayoutAttributeNotAnAttribute
+import platform.UIKit.NSLayoutAttributeWidth
+import platform.UIKit.NSLayoutConstraint
+import platform.UIKit.NSLayoutRelationEqual
+import platform.UIKit.UIView
 import platform.UIKit.UIViewContentMode
 import platform.darwin.NSObject
+import platform.darwin.nil
 
-private val logger = ConsoleLogger(name = "ChimeSDK", level = LogLevelINFO)
+// Due to a kotlin limitation we cannot create fields in companion objects of classes which extend from objc
+private object CompanionObject {
+    val logger = ConsoleLogger(name = "ChimeSDK", level = LogLevelINFO)
+
+    lateinit var bundleIdentifier: String
+}
 
 @Suppress(names = ["EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING"])
 actual class ChimeSDK(
     private val meetingSession: DefaultMeetingSession
 ) : NSObject() {
     actual companion object {
+        fun initialize(bundleIdentifier: String) {
+            CompanionObject.bundleIdentifier = bundleIdentifier
+        }
+
         actual fun createSession(
             externalMeetingId: String,
             meetingId: String,
@@ -75,11 +105,11 @@ actual class ChimeSDK(
                 externalMeetingId = externalMeetingId,
                 credentials = credentials,
                 urls = urls,
-                urlRewriter = { it }
+                urlRewriter = URLRewriterUtils.defaultUrlRewriter()
             )
 
             val meetingSession =
-                DefaultMeetingSession(configuration = configuration, logger = logger)
+                DefaultMeetingSession(configuration = configuration, logger = CompanionObject.logger)
 
             return ChimeSDK(meetingSession)
         }
@@ -244,7 +274,7 @@ actual class ChimeSDK(
                 it.type() == if (cameraFacing == CameraFacing.FRONT) MediaDeviceTypeVideoFrontCamera else MediaDeviceTypeVideoBackCamera
             }
 
-        cameraCaptureSource = DefaultCameraCaptureSource(logger).apply {
+        cameraCaptureSource = DefaultCameraCaptureSource(CompanionObject.logger).apply {
             setDevice(camera)
             start()
 
@@ -281,10 +311,10 @@ actual class ChimeSDK(
         factory = {
             (videoTileObserver.getRemoteView(tileId)
                 ?: throw IllegalArgumentException("Remote view for tile $tileId not found")
-            ).apply {
-                contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill
-                layer.masksToBounds = true
-            }
+                    ).apply {
+                    contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill
+                    layer.masksToBounds = true
+                }
         },
         modifier = modifier,
         update = {}
@@ -338,5 +368,108 @@ actual class ChimeSDK(
             error = null
         )
         audioSession.setActive(true, null)
+    }
+
+    @Suppress("CAST_NEVER_SUCCEEDS")
+    @OptIn(ExperimentalComposeUiApi::class)
+    @Composable
+    actual fun ScreenShareButton() {
+        SideEffect {
+            val meetingSessionConfig = meetingSession.configuration()
+            val meetingId = meetingSessionConfig.meetingId()
+            val meetingCredentials = meetingSessionConfig.credentials()
+            val meetingUrls = meetingSessionConfig.urls()
+
+            val userDefaultsMeetingIdKey = "meetingId"
+            val userDefaultsCredentialsKey = "meetingCredentials"
+            val userDefaultsUrlsKey = "meetingUrls"
+
+            val credentialsJson = buildJsonObject {
+                put("attendeeId", meetingCredentials.attendeeId())
+                put("externalUserId", meetingCredentials.externalUserId())
+                put("joinToken", meetingCredentials.joinToken())
+            }.toString()
+            val urlsJson = buildJsonObject {
+                put("audioFallbackUrl", meetingUrls.audioFallbackUrl())
+                put("audioHostUrl", meetingUrls.audioHostUrl())
+                put("turnControlUrl", meetingUrls.turnControlUrl())
+                put("signalingUrl", meetingUrls.signalingUrl())
+                put("ingestionUrl", meetingUrls.ingestionUrl())
+            }.toString()
+
+            NSUserDefaults(suiteName = "group.${CompanionObject.bundleIdentifier}").apply {
+                setObject(meetingId as NSString, forKey = userDefaultsMeetingIdKey)
+                setObject(credentialsJson as NSString, forKey = userDefaultsCredentialsKey)
+                setObject(urlsJson as NSString, forKey = userDefaultsUrlsKey)
+            }
+        }
+
+        val pickerViewDiameter = remember { 35.0 }
+        val broadcastPicker = remember {
+            RPSystemBroadcastPickerView(
+                frame = CGRectMake(
+                    x = 0.0,
+                    y = 0.0,
+                    width = pickerViewDiameter,
+                    height = pickerViewDiameter
+                )
+            ).apply {
+                setPreferredExtension("${CompanionObject.bundleIdentifier}.ScreenCaptureService")
+                setShowsMicrophoneButton(false)
+            }
+        }
+
+        UIKitView(
+            factory = {
+                UIView().apply {
+                    addSubview(broadcastPicker)
+                    bringSubviewToFront(broadcastPicker)
+                }
+            },
+            modifier = Modifier.size(pickerViewDiameter.dp).zIndex(99f),
+            properties = UIKitInteropProperties(
+                placedAsOverlay = true
+            ),
+            update = {
+                it.setNeedsLayout()
+                val centerX = NSLayoutConstraint.constraintWithItem(
+                    view1 = broadcastPicker,
+                    attribute = NSLayoutAttributeCenterX,
+                    relatedBy = NSLayoutRelationEqual,
+                    toItem = it,
+                    _attribute = NSLayoutAttributeCenterX,
+                    multiplier = 1.0,
+                    constant = 0.0,
+                )
+                val centerY = NSLayoutConstraint.constraintWithItem(
+                    view1 = broadcastPicker,
+                    attribute = NSLayoutAttributeCenterY,
+                    relatedBy = NSLayoutRelationEqual,
+                    toItem = it,
+                    _attribute = NSLayoutAttributeCenterY,
+                    multiplier = 1.0,
+                    constant = 0.0,
+                )
+                val width = NSLayoutConstraint.constraintWithItem(
+                    view1 = broadcastPicker,
+                    attribute = NSLayoutAttributeWidth,
+                    relatedBy = NSLayoutRelationEqual,
+                    toItem = nil,
+                    _attribute = NSLayoutAttributeNotAnAttribute,
+                    multiplier = 1.0,
+                    constant = pickerViewDiameter,
+                )
+                val height = NSLayoutConstraint.constraintWithItem(
+                    view1 = broadcastPicker,
+                    attribute = NSLayoutAttributeHeight,
+                    relatedBy = NSLayoutRelationEqual,
+                    toItem = nil,
+                    _attribute = NSLayoutAttributeNotAnAttribute,
+                    multiplier = 1.0,
+                    constant = pickerViewDiameter,
+                )
+                it.addConstraints(listOf(centerX, centerY, width, height))
+            }
+        )
     }
 }
