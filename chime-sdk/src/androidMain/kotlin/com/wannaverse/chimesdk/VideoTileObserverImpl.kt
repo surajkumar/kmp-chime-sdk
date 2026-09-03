@@ -1,6 +1,7 @@
 package com.wannaverse.chimesdk
 
 import android.content.Context
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoRenderView
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileObserver
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileState
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.TextureRenderView
@@ -13,17 +14,17 @@ class VideoTileObserverImpl(
     private val onRemoteTileAdded: (Int) -> Unit,
     private val onRemoteTileRemoved: () -> Unit
 ) : VideoTileObserver {
-    internal val localRenderView = TextureRenderView(ChimeSDK.activity)
-    private val remoteRenderView: MutableMap<Int, TextureRenderView> = mutableMapOf()
+    internal val localRenderView = DefaultVideoRenderView(ChimeSDK.activity)
+    private val remoteRenderView: MutableMap<Int, DefaultVideoRenderView> = mutableMapOf()
 
-    fun getRemoteRenderView(tileId: Int): TextureRenderView? = remoteRenderView[tileId]
+    fun getRemoteRenderView(tileId: Int): DefaultVideoRenderView? = remoteRenderView[tileId]
 
     override fun onVideoTileAdded(tileState: VideoTileState) {
         if (tileState.isLocalTile) {
             meetingSession.audioVideo.bindVideoView(localRenderView, tileState.tileId)
             onLocalTileAdded(tileState.tileId)
         } else {
-            remoteRenderView[tileState.tileId] = TextureRenderView(ChimeSDK.activity)
+            remoteRenderView[tileState.tileId] = DefaultVideoRenderView(ChimeSDK.activity)
             meetingSession.audioVideo.bindVideoView(remoteRenderView[tileState.tileId]!!, tileState.tileId)
             onRemoteTileAdded(tileState.tileId)
         }

@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "com.wannaverse"
-version = "0.5.10"
+version = "0.5.16"
 
 kotlin {
     jvmToolchain(21)
